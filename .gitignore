@@ -30,3 +30,12 @@
 *.exe
 *.out
 *.app
+
+data
+hw_build_remote*
+build.sw
+build.hw
+
+Thirdparty/BinVoc/bin_vocabulary
+Thirdparty/BinVoc/ORBvoc.bin
+Thirdparty/BinVoc/ORBvoc.txt
