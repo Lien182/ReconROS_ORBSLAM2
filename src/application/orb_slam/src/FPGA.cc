@@ -16,12 +16,17 @@ extern "C" {
 #include <string.h>
 #include <vector>
 
+typedef struct
+{
+    uint16_t x;
+    uint16_t y;
+    uint32_t score;
+}t_keypoint;
+
+
+
 #define FAST_WINDOW_SIZE 50
-
-
 #define MEM_READ(src, dest, n) memcpy((void*)dest, (void*)src, n)
-
-
 #define read_next_lines {for(int i = 0; i < FAST_WINDOW_SIZE; i++){ \
                                     offset = ((uint64_t)image_ptr + cache_cnt*(image_width))&3; \
                                     MEM_READ((((uint64_t)image_ptr + cache_cnt*(image_width))&(~3)), image_data + IMAGE_CACHE_WIDTH*(cache_cnt%IMAGE_CACHE_HEIGHT),\
@@ -36,8 +41,8 @@ static pthread_mutex_t fpga_mutex_0=PTHREAD_MUTEX_INITIALIZER;
 
 static pthread_mutex_t fpga_mutex_1=PTHREAD_MUTEX_INITIALIZER;
 
-static uint32_t * result_buffer_1;
-static uint32_t * result_buffer_2;
+static t_keypoint * result_buffer_0;
+static t_keypoint * result_buffer_1;
 
 extern int bUseHw;
 
@@ -46,19 +51,12 @@ void FPGA::FPGA_Init(void)
 {
     sem_init(&fpga_sema,0,2);
 
-    if(bUseHw==1)
-    {
-        result_buffer_1 = (uint32_t *)malloc(sizeof(uint32_t) * 1024 * 8);
-        result_buffer_2 = (uint32_t *)malloc(sizeof(uint32_t) * 1024 * 8);
+    uint32_t memory_size = sizeof(t_keypoint) * 10000;
+    result_buffer_0 = (t_keypoint *)malloc(memory_size);
+    result_buffer_1 = (t_keypoint *)malloc(memory_size);
 
-        if(result_buffer_1 == NULL || result_buffer_2 == NULL)
-            printf("FPGA: Error while allocating memory \n");
-
-    }
-
-
-
-
+    if(result_buffer_0 == NULL || result_buffer_1 == NULL)
+        printf("FPGA: Error while allocating memory \n");
 }
 
 void FPGA::FPGA_FAST( InputArray image, CV_OUT std::vector<KeyPoint>& keypoints, int threshold, bool nonmaxSuppression )
@@ -91,27 +89,14 @@ void FPGA::Compute_Keypoints( cv::Mat &image, uint32_t nfeatures, vector<KeyPoin
         mbox_put(resources_fast_request_0, (uint32_t)image.cols);
         mbox_put(resources_fast_request_0, (uint32_t)image.rows);
         mbox_put(resources_fast_request_0, (uint32_t)image.step);
-        mbox_put(resources_fast_request_0, (uint32_t)&cvKeypoints);
+        mbox_put(resources_fast_request_0, (uint32_t)result_buffer_0);
 
         nres =  mbox_get(resources_fast_response_0);
 
-        if(bUseHw == 1)
+        for(int i =0 ; i < nres; i++)
         {
-            for(int i =0 ; i < nres; i++)
-            {
-                keypoints.push_back(KeyPoint((float)(result_buffer_1[i] & 0x0000ffff), (float)((result_buffer_1[i] & 0xffff0000)>>16), 7.f, -1, 0));
-            }
+            keypoints.push_back(KeyPoint((float)(result_buffer_0[i].x), (float)(result_buffer_0[i].y), 7.f, -1, (float)(result_buffer_0[i].score)));
         }
-        else
-        {
-           //printf("FPGA 0: Got %d points \n", cvKeypoints.size());
-            for(vector<cv::KeyPoint>::iterator vit=cvKeypoints.begin(); vit!=cvKeypoints.end();vit++)
-            {
-                keypoints.push_back(*vit);
-            }
-
-        }
-
 
         pthread_mutex_unlock( &fpga_mutex_0 );
         sem_post(&fpga_sema);
@@ -129,27 +114,15 @@ void FPGA::Compute_Keypoints( cv::Mat &image, uint32_t nfeatures, vector<KeyPoin
         mbox_put(resources_fast_request_1, (uint32_t)image.cols);
         mbox_put(resources_fast_request_1, (uint32_t)image.rows);
         mbox_put(resources_fast_request_1, (uint32_t)image.step);
-        mbox_put(resources_fast_request_1, (uint32_t)&cvKeypoints);
+        mbox_put(resources_fast_request_1, (uint32_t)result_buffer_1);
 
         nres =  mbox_get(resources_fast_response_1);
 
-        if(bUseHw == 1)
+        for(int i =0 ; i < nres; i++)
         {
-            for(int i =0 ; i < nres; i++)
-            {
-                keypoints.push_back(KeyPoint((float)(result_buffer_2[i] & 0x0000ffff), (float)((result_buffer_2[i] & 0xffff0000)>>16), 7.f, -1, 0));
-            }
+            keypoints.push_back(KeyPoint((float)(result_buffer_1[i].x), (float)(result_buffer_1[i].y), 7.f, -1, (float)(result_buffer_1[i].score)));
         }
-        else
-        {
 
-            //printf("FPGA 1: Got %d points \n", cvKeypoints.size());
-            for(vector<cv::KeyPoint>::iterator vit=cvKeypoints.begin(); vit!=cvKeypoints.end();vit++)
-            {
-                keypoints.push_back(*vit);
-            }
-
-        }
         pthread_mutex_unlock(&fpga_mutex_1);
         sem_post(&fpga_sema);
     }

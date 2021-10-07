@@ -47,6 +47,13 @@ void mat_copy( uint8_t * data, cv::Mat&_dest, int iniY, int iniX, int cache_cnt,
     }
 }
 
+typedef struct
+{
+    uint16_t x;
+    uint16_t y;
+    uint32_t score;
+}t_keypoint;
+
 THREAD_ENTRY() {
 
 
@@ -99,12 +106,11 @@ THREAD_ENTRY() {
         const int nCols = width/50;
         const int nRows = height/50;
 
-		vector<cv::KeyPoint>* vToDistributeKeys = (vector<cv::KeyPoint>*)feature_dest;
+		//vector<cv::KeyPoint>* vToDistributeKeys = (vector<cv::KeyPoint>*)feature_dest;
+
+		t_keypoint* keypoints = (t_keypoint*)feature_dest;
 
 		uint32_t _offset = 0;
-
-		//cv::Mat *Image = (cv::Mat*)image_ptr;
-
         read_next_lines;
 
 		for(int i=0; i<nRows; i++)
@@ -134,23 +140,27 @@ THREAD_ENTRY() {
 				vector<cv::KeyPoint> vKeysCell;
 				cv::FAST(tmp, vKeysCell, 14, true);
 
-				//cv::FAST(Image->rowRange(iniY,maxY).colRange(iniX,maxX), vKeysCell, 14, true);
-				
+				//cv::FAST(Image->rowRange(iniY,maxY).colRange(iniX,maxX), vKeysCell, 14, true);				
 				//key point (x<16>,y<16>,size<16>,angle<16>, response<16>, octave<16> )
 
+				//printf("vKeysCell.size = %d (i=%d/%d, j=%d/%d)\n", vKeysCell.size(), i , nRows, j, nCols);
 				if(!vKeysCell.empty())
 				{
 					for(vector<cv::KeyPoint>::iterator vit=vKeysCell.begin(); vit!=vKeysCell.end();vit++)
 					{
 						(*vit).pt.x+=j*wCell;
 						(*vit).pt.y+=i*hCell;
-						vToDistributeKeys->push_back(*vit);
+
+						keypoints[nWrittenPoints].x = (*vit).pt.x;
+						keypoints[nWrittenPoints].y = (*vit).pt.y;
+						keypoints[nWrittenPoints].score = (uint32_t)((*vit).response);
 						nWrittenPoints+= 1;
 					}
 				}
 			}
 		}
 		//*((vector<cv::KeyPoint>*)feature_dest) = vToDistributeKeys;
+		//printf("nWrittenPoints=%d \n", nWrittenPoints);
         MBOX_PUT(response, nWrittenPoints);
 	}
 }
