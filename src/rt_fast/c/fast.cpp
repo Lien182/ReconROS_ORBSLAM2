@@ -28,9 +28,24 @@ extern "C" THREAD_ENTRY(); // this is required because of the mixture of c and c
 
 
 #define read_next_lines {for(int __i = 0; __i < FAST_WINDOW_SIZE; __i++){ \
-                                    _offset = (image_ptr + cache_cnt*(image_width))&3; \
-                                    memcpy((void*)&image_data[(cache_cnt%IMAGE_CACHE_HEIGHT)],(void*)((image_ptr + cache_cnt*(image_width))&(~3)), ((image_width+_offset+3)&(~3)));\
+                                    _offset = (image_ptr + cache_cnt*(image_step))&3; \
+                                    memcpy((void*)&image_data[(cache_cnt%IMAGE_CACHE_HEIGHT)*IMAGE_CACHE_WIDTH],(void*)((image_ptr + cache_cnt*(image_step))&(~3)), ((image_width+_offset+3)&(~3)));\
                                     cache_cnt+=1;} }
+
+
+void mat_copy( uint8_t * data, cv::Mat&_dest, int iniY, int iniX, int cache_cnt,uint32_t image_ptr_offset, uint32_t image_width)
+{
+    for(int i = 0; i < (FAST_WINDOW_SIZE); i++)
+    {
+        uint32_t line_index = (iniY+i);
+        uint32_t offset = (image_ptr_offset +  line_index*(image_width))&3;
+
+        for(int j = 0; j < (FAST_WINDOW_SIZE); j++)
+        {
+            _dest.data[j+FAST_WINDOW_SIZE*i] = data[offset + (j+iniX)+ (line_index %IMAGE_CACHE_HEIGHT) *IMAGE_CACHE_WIDTH];
+        }
+    }
+}
 
 THREAD_ENTRY() {
 
@@ -65,6 +80,7 @@ THREAD_ENTRY() {
         uint32_t image_ptr    = MBOX_GET(request);
         uint32_t image_width  = MBOX_GET(request);
         uint32_t image_height = MBOX_GET(request);
+        uint32_t image_step	  = MBOX_GET(request);
         uint32_t feature_dest = MBOX_GET(request);
 
 		//printf("image_ptr=%x, image_width=%d, image_height=%d, feature_dest=%x \n", image_ptr, image_width, image_height, feature_dest);
@@ -87,7 +103,7 @@ THREAD_ENTRY() {
 
 		uint32_t _offset = 0;
 
-		cv::Mat *Image = (cv::Mat*)image_ptr;
+		//cv::Mat *Image = (cv::Mat*)image_ptr;
 
         read_next_lines;
 
@@ -112,20 +128,13 @@ THREAD_ENTRY() {
 				if(maxX>maxBorderX)
 					maxX = maxBorderX;
 
-				//cv::Mat tmp = cv::Mat(50, 50, CV_8UC1);
-				//printf("tmp.step = %d \n", (int)tmp.step);
-				//for(int i = 0; i < (50); i++)
-				//{
-				//	for(int j = 0; j < (50); j++)
-				//	{
-				//		tmp.data[i*50+j] = (char)(image_data[_offset+(j+iniY)+ ((iniX+i+cache_cnt) %IMAGE_CACHE_HEIGHT) *IMAGE_CACHE_WIDTH]);
-				//	}
-				//}
+				cv::Mat tmp = cv::Mat(50, 50, CV_8UC1);
+				mat_copy( image_data, tmp, iniY, iniX,cache_cnt, image_ptr_offset, image_width);
 
 				vector<cv::KeyPoint> vKeysCell;
-				//cv::FAST(tmp, vKeysCell, 14, true);
+				cv::FAST(tmp, vKeysCell, 14, true);
 
-				cv::FAST(Image->rowRange(iniY,maxY).colRange(iniX,maxX), vKeysCell, 14, true);
+				//cv::FAST(Image->rowRange(iniY,maxY).colRange(iniX,maxX), vKeysCell, 14, true);
 				
 				//key point (x<16>,y<16>,size<16>,angle<16>, response<16>, octave<16> )
 

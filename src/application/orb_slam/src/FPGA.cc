@@ -82,13 +82,15 @@ void FPGA::Compute_Keypoints( cv::Mat &image, uint32_t nfeatures, vector<KeyPoin
     if(pthread_mutex_trylock( &fpga_mutex_0 ) == 0)
     {   
 
-        if(bUseHw == 1)
-            mbox_put(resources_fast_request_0, (uint32_t)image.data);
-        else
-            mbox_put(resources_fast_request_0, (uint32_t)&image);
+        //if(bUseHw == 1)
+        //printf("cv::Mat &image.step = %d, v::Mat &image.cols = %d \n", (int)image.step,(int)image.cols);
+        mbox_put(resources_fast_request_0, (uint32_t)image.data);
+        //else
+        //    mbox_put(resources_fast_request_0, (uint32_t)&image);
 
-        mbox_put(resources_fast_request_0, image.cols);
-        mbox_put(resources_fast_request_0, image.rows);
+        mbox_put(resources_fast_request_0, (uint32_t)image.cols);
+        mbox_put(resources_fast_request_0, (uint32_t)image.rows);
+        mbox_put(resources_fast_request_0, (uint32_t)image.step);
         mbox_put(resources_fast_request_0, (uint32_t)&cvKeypoints);
 
         nres =  mbox_get(resources_fast_response_0);
@@ -118,13 +120,15 @@ void FPGA::Compute_Keypoints( cv::Mat &image, uint32_t nfeatures, vector<KeyPoin
     {
         pthread_mutex_lock( &fpga_mutex_1 );
 
-        if(bUseHw == 1)
-            mbox_put(resources_fast_request_1, (uint32_t)image.data);
-        else
-            mbox_put(resources_fast_request_1, (uint32_t)&image);
+        //if(bUseHw == 1)
+        //printf("cv::Mat &image.step = %d, v::Mat &image.cols = %d \n", (int)image.step,(int)image.cols);
+        mbox_put(resources_fast_request_1, (uint32_t)image.data);
+        //else
+        //    mbox_put(resources_fast_request_1, (uint32_t)&image);
 
-        mbox_put(resources_fast_request_1, image.cols);
-        mbox_put(resources_fast_request_1, image.rows);
+        mbox_put(resources_fast_request_1, (uint32_t)image.cols);
+        mbox_put(resources_fast_request_1, (uint32_t)image.rows);
+        mbox_put(resources_fast_request_1, (uint32_t)image.step);
         mbox_put(resources_fast_request_1, (uint32_t)&cvKeypoints);
 
         nres =  mbox_get(resources_fast_response_1);
