@@ -793,27 +793,8 @@ if(bUseHw == 1 || bUseHw == 2) //1 reconos hw threads, 2 reconos sw threads
         #warning ORBextractor.cc: USE_FPGA enabled
         uint32_t feature_cnt = 0;
         
-        FPGA::Compute_Keypoints( mvImagePyramid[level].data , mvImagePyramid[level].cols, mvImagePyramid[level].rows, nfeatures, vToDistributeKeys );
-
-
-
-        //std::cout << "Feature Count = " << feature_cnt << std::endl;
+        FPGA::Compute_Keypoints( mvImagePyramid[level], nfeatures, vToDistributeKeys );
 }
-
-/*
-        vector<cv::KeyPoint> vKeysCell;
-        FPGA::Compute_Keypoints( mvImagePyramid[level].data , mvImagePyramid[level].cols, mvImagePyramid[level].rows, nfeatures, vKeysCell );
-        if(!vKeysCell.empty())
-        {
-            for(vector<cv::KeyPoint>::iterator vit=vKeysCell.begin(); vit!=vKeysCell.end();vit++)
-            {
-
-                vToDistributeKeys.push_back(*vit);
-            }
-        }
-
-*/
-
 else
 {
         const float width = (maxBorderX-minBorderX);
@@ -844,15 +825,16 @@ else
                     maxX = maxBorderX;
 
                 vector<cv::KeyPoint> vKeysCell;
+
                 FPGA::FPGA_FAST(mvImagePyramid[level].rowRange(iniY,maxY).colRange(iniX,maxX),
                      vKeysCell,14,true);
 
-/*
-                if(vKeysCell.empty())
-                {
-                    FPGA::FPGA_FAST(mvImagePyramid[level].rowRange(iniY,maxY).colRange(iniX,maxX),
-                         vKeysCell,minThFAST,true);
-                }
+                /*
+                    if(vKeysCell.empty())
+                    {
+                        FPGA::FPGA_FAST(mvImagePyramid[level].rowRange(iniY,maxY).colRange(iniX,maxX),
+                            vKeysCell,minThFAST,true);
+                    }
                 */
 
                 if(!vKeysCell.empty())
@@ -869,6 +851,8 @@ else
         }
 
     }
+
+        std::cout << "vToDistributeKeys.size=" << vToDistributeKeys.size() << std::endl; 
 
         vector<KeyPoint> & keypoints = allKeypoints[level];
         keypoints.reserve(nfeatures);

@@ -39,3 +39,4 @@ build.hw
 Thirdparty/BinVoc/bin_vocabulary
 Thirdparty/BinVoc/ORBvoc.bin
 Thirdparty/BinVoc/ORBvoc.txt
+.gitignore

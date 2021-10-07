@@ -1,5 +1,6 @@
 
 
+#include <iostream>
 #include <cmath>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -47,11 +48,13 @@ THREAD_ENTRY() {
 	{
 		request = resources_fast_request_0;
 		response = resources_fast_response_0;
+		printf("Hello from FPGA0\n");
 	}		
 	else
 	{
 		request = resources_fast_request_1;
 		response = resources_fast_response_1;
+		printf("Hello from FPGA1\n");
 	}
 		
 
@@ -63,6 +66,8 @@ THREAD_ENTRY() {
         uint32_t image_width  = MBOX_GET(request);
         uint32_t image_height = MBOX_GET(request);
         uint32_t feature_dest = MBOX_GET(request);
+
+		//printf("image_ptr=%x, image_width=%d, image_height=%d, feature_dest=%x \n", image_ptr, image_width, image_height, feature_dest);
 
         uint32_t image_ptr_offset = image_ptr & 3;
 	    const int minBorderX = EDGE_THRESHOLD-3;
@@ -78,11 +83,11 @@ THREAD_ENTRY() {
         const int nCols = width/50;
         const int nRows = height/50;
 
-		vector<cv::KeyPoint> vToDistributeKeys;
-		memcpy((void*)feature_dest, (void*)&vToDistributeKeys, sizeof(vToDistributeKeys) );
-        vToDistributeKeys.reserve(2000*10);
+		vector<cv::KeyPoint>* vToDistributeKeys = (vector<cv::KeyPoint>*)feature_dest;
 
 		uint32_t _offset = 0;
+
+		cv::Mat *Image = (cv::Mat*)image_ptr;
 
         read_next_lines;
 
@@ -107,42 +112,36 @@ THREAD_ENTRY() {
 				if(maxX>maxBorderX)
 					maxX = maxBorderX;
 
-				cv::Mat tmp = cv::Mat(50, 50, CV_8UC1);
+				//cv::Mat tmp = cv::Mat(50, 50, CV_8UC1);
 				//printf("tmp.step = %d \n", (int)tmp.step);
-				for(int i = 0; i < (50); i++)
-				{
-					for(int j = 0; j < (50); j++)
-					{
-						tmp.data[i*50+j] = (char)(image_data[_offset+(j+iniY)+ ((iniX+i+cache_cnt) %IMAGE_CACHE_HEIGHT) *IMAGE_CACHE_WIDTH]);
-					}
-				}
+				//for(int i = 0; i < (50); i++)
+				//{
+				//	for(int j = 0; j < (50); j++)
+				//	{
+				//		tmp.data[i*50+j] = (char)(image_data[_offset+(j+iniY)+ ((iniX+i+cache_cnt) %IMAGE_CACHE_HEIGHT) *IMAGE_CACHE_WIDTH]);
+				//	}
+				//}
 
 				vector<cv::KeyPoint> vKeysCell;
-				cv::FAST(tmp, vKeysCell,14,true);
-					
+				//cv::FAST(tmp, vKeysCell, 14, true);
+
+				cv::FAST(Image->rowRange(iniY,maxY).colRange(iniX,maxX), vKeysCell, 14, true);
+				
 				//key point (x<16>,y<16>,size<16>,angle<16>, response<16>, octave<16> )
 
 				if(!vKeysCell.empty())
+				{
+					for(vector<cv::KeyPoint>::iterator vit=vKeysCell.begin(); vit!=vKeysCell.end();vit++)
 					{
-						for(vector<cv::KeyPoint>::iterator vit=vKeysCell.begin(); vit!=vKeysCell.end();vit++)
-						{
-							(*vit).pt.x+=j*wCell;
-							(*vit).pt.y+=i*hCell;
-							vToDistributeKeys.push_back(*vit);
-							nWrittenPoints+= 1;
-						}
+						(*vit).pt.x+=j*wCell;
+						(*vit).pt.y+=i*hCell;
+						vToDistributeKeys->push_back(*vit);
+						nWrittenPoints+= 1;
 					}
-
-
-
-				//
-			
+				}
 			}
 		}
-		//printf("sizeof(vToDistributeKeys) = %d \n", sizeof(vToDistributeKeys));
-		*((vector<cv::KeyPoint>*)feature_dest) = vToDistributeKeys;
-
-		//printf("nWrittenPoints = %d \n", nWrittenPoints);
+		//*((vector<cv::KeyPoint>*)feature_dest) = vToDistributeKeys;
         MBOX_PUT(response, nWrittenPoints);
 	}
 }
